@@ -1,6 +1,7 @@
 mod codemap;
 mod fileio;
 mod lexer;
+mod parser;
 
 fn main() {
     let program = match fileio::get_input() {
@@ -11,7 +12,7 @@ fn main() {
         }
     };
 
-    let mut lexer = lexer::Lexer::new(program.to_owned());
+    let mut lexer = lexer::Lexer::new(program);
 
     match lexer.tokenize() {
         Ok(()) => {}
@@ -21,6 +22,15 @@ fn main() {
         }
     }
 
-    //println!("{}(EOF)", program);
-    println!("{:#?}", lexer.tokens);
+    let mut parser = parser::Parser::new(lexer.tokens);
+
+    match parser.parse() {
+        Ok(()) => {}
+        Err(e) => {
+            println!("BASM-PREPROCESSOR: {}", e);
+            return;
+        }
+    }
+
+    println!("{}", parser.output);
 }

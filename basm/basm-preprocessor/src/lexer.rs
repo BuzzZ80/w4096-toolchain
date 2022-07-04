@@ -1,14 +1,12 @@
-use crate::codemap::{CodeMap, LineEntry};
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenKind {
-    Code(String),   // For raw code
-    Newline,        // \n
-    Whitespace,     // Spaces
-    None,    // For things that should be ignored
-    Include, // For including other asm files
-    Define,  // For defining constants
-    Undef,   // For undefining constants
+    Code(String), // For raw code
+    Newline,      // \n
+    Whitespace,   // Spaces
+    None,         // For things that should be ignored
+    Include,      // For including other asm files
+    Define,       // For defining constants
+    Undef,        // For undefining constants
     Integer(i64),
     String(String),
 }
@@ -27,7 +25,6 @@ enum ReadKind {
 pub struct Lexer {
     pub data: String,
     pub tokens: Vec<Token>,
-    pub map: CodeMap,
     span: (usize, usize),
     line: usize,
     state: ReadKind,
@@ -169,7 +166,6 @@ fn tokenize_directive(data: &str) -> Result<Token, String> {
 
 impl Lexer {
     pub fn new(data: String) -> Self {
-        let map = CodeMap::new();
         let tokens = Vec::new();
         let span = (0, data.len());
         let line = 1;
@@ -178,7 +174,6 @@ impl Lexer {
         Self {
             data,
             tokens,
-            map,
             span,
             line,
             state,
@@ -209,20 +204,12 @@ impl Lexer {
                 _ => match self.tokenize_one_token() {
                     Ok(tok) => (tok.kind, tok.span),
                     Err(e) => return Err(format!("Error on line {}:\n  {}", self.line, e)),
-                }
+                },
             };
             self.consume(span);
             match kind {
                 TokenKind::None => {}
-                _ => {
-                    self.map.line_entries.push(
-                        LineEntry {
-                            filename_index: 0,
-                            line: self.line,
-                        }
-                    );
-                    self.tokens.push(Token { kind, span });
-                }
+                _ => self.tokens.push(Token { kind, span }),
             }
         }
 

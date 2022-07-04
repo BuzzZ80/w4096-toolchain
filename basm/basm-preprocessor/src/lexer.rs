@@ -1,8 +1,10 @@
-use crate::codemap::CodeMap;
+use crate::codemap::{CodeMap, LineEntry};
 
 #[derive(Debug)]
 pub enum TokenKind {
-    Code,    // For raw code
+    Code(String),   // For raw code
+    Newline,        // \n
+    Whitespace,     // Spaces
     None,    // For things that should be ignored
     Include, // For including other asm files
     Define,  // For defining constants
@@ -74,10 +76,10 @@ fn skip_comment(data: &str) -> usize {
 }
 
 /// Returns the length of a span from a ; to a newline
-fn skip_line(data: &str) -> usize {
-    let bytes_read = match take_while(data, |c| c != '\n') {
+fn skip_code(data: &str) -> usize {
+    let bytes_read = match take_while(data, |c| c != '\n' && c != ';') {
         Ok((_, bytes_read)) => bytes_read,
-        Err(_) => panic!("Unexpected EOF in skip_comment"),
+        Err(_) => panic!("Unexpected EOF in skip_line"),
     };
     return bytes_read;
 }
@@ -121,8 +123,8 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
             Some('\\') => {
                 bytes_read += 1;
                 match chars.next() {
-                    Some('n') => 0x0A as char,
-                    Some('0') => 0x00 as char,
+                    Some('n') => '\n',
+                    Some('0') => '\0',
                     Some('\\') => '\\',
                     Some('\"') => '"',
                     Some(c) => return Err(format!("{} is not a valid escape character", c)),
@@ -150,7 +152,7 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
 
 /// Tokenizes a single directive
 fn tokenize_directive(data: &str) -> Result<Token, String> {
-    let (read, bytes_read) = take_while(data, |c| c == '_' || c == '.' || c.is_alphanumeric())?;
+    let (read, bytes_read) = take_while(data, |c| c == '_' || c == '#' || c.is_alphanumeric())?;
 
     let token_kind = match &read.to_lowercase()[..] {
         "#include" => TokenKind::Include,
@@ -191,12 +193,17 @@ impl Lexer {
                 .nth(self.span.0)
                 .unwrap_or_else(|| panic!("Lexer object span broke. Did you forget a '\"'?\n"))
             {
-                c if c.is_whitespace() && c != '\n' => {
-                    (TokenKind::Code, skip_white_space(self.get_selected()))
-                }
+                c if c.is_whitespace() && c != '\n' => match self.state {
+                    ReadKind::PassThrough => {
+                        (TokenKind::Whitespace, skip_white_space(self.get_selected()))
+                    }
+                    ReadKind::ReadParameters => {
+                        (TokenKind::None, skip_white_space(self.get_selected()))
+                    }
+                },
                 '\n' => {
                     self.line += 1;
-                    (TokenKind::Code, 1)
+                    (TokenKind::Newline, 1)
                 }
                 ';' => (TokenKind::None, skip_comment(self.get_selected())),
                 _ => match self.tokenize_one_token() {
@@ -205,10 +212,18 @@ impl Lexer {
                 }
             };
             self.consume(span);
-            self.tokens.push(Token{
-                kind,
-                span,
-            });
+            match kind {
+                TokenKind::None => {}
+                _ => {
+                    self.map.line_entries.push(
+                        LineEntry {
+                            filename_index: 0,
+                            line: self.line,
+                        }
+                    );
+                    self.tokens.push(Token { kind, span });
+                }
+            }
         }
 
         Ok(())
@@ -220,19 +235,25 @@ impl Lexer {
             Some(c) => c,
             None => return Err("Unexpected EOF".to_owned()),
         };
-    
-        match next {
+
+        let tok = match next {
             '#' => {
                 self.state = ReadKind::ReadParameters;
-                tokenize_directive(data)
+                tokenize_directive(data)?
             }
-            '"' => tokenize_string_literal(data),
-            '0'..='9' => tokenize_number(data),
-            _ => Ok(Token {
-                kind: TokenKind::Code,
-                span: skip_line(data),
-            })
-        }
+            '"' => tokenize_string_literal(data)?,
+            '0'..='9' => tokenize_number(data)?,
+            _ => {
+                self.state = ReadKind::PassThrough;
+                let span = skip_code(data);
+                Token {
+                    kind: TokenKind::Code(data[0..span].to_owned()),
+                    span,
+                }
+            }
+        };
+
+        Ok(tok)
     }
 
     fn consume(&mut self, amount: usize) {

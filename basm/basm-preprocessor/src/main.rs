@@ -13,6 +13,14 @@ fn main() {
 
     let mut lexer = lexer::Lexer::new(program.to_owned());
 
-    println!("{}(EOF)", program);
-    println!("{:?}", lexer.tokenize())
+    match lexer.tokenize() {
+        Ok(()) => {}
+        Err(e) => {
+            println!("BASM-PREPROCESSOR: {}", e);
+            return;
+        }
+    }
+
+    //println!("{}(EOF)", program);
+    println!("{:#?}", lexer.tokens);
 }

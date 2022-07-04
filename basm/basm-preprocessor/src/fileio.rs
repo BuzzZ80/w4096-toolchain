@@ -1,7 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io;
-use std::io::prelude::{Read, /*Write*/};
+use std::io::prelude::Read;
 
 pub fn get_input() -> Result<String, String> {
     // Get command line arguments
@@ -24,7 +24,8 @@ pub fn get_input() -> Result<String, String> {
 
 pub fn read_file(filename: &str) -> Result<String, String> {
     let mut content = String::new(); // Create string buffer to hold the contents of the file
-                                     // Ensure file can be opened
+
+    // Ensure file can be opened
     let mut file = match File::open(filename) {
         Ok(file) => file,
         Err(e) => {

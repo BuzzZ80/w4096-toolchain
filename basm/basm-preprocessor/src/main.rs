@@ -1,4 +1,6 @@
+mod codemap;
 mod fileio;
+mod lexer;
 
 fn main() {
     let program = match fileio::get_input() {
@@ -9,5 +11,8 @@ fn main() {
         }
     };
 
+    let mut lexer = lexer::Lexer::new(program.to_owned());
+
     println!("{}(EOF)", program);
+    println!("{:?}", lexer.tokenize())
 }

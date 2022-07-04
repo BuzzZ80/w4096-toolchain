@@ -1,7 +1,7 @@
 use std::env;
-use std::io;
 use std::fs::File;
-use std::io::prelude::{Read, Write};
+use std::io;
+use std::io::prelude::{Read, /*Write*/};
 
 pub fn get_input() -> Result<String, String> {
     // Get command line arguments
@@ -11,35 +11,41 @@ pub fn get_input() -> Result<String, String> {
     match args.len() {
         1 => return Err("Expected at least one argument".to_owned()),
         2 => match &args[1][0..=1] {
-            "-s" => return get_std(),   // -s indicates that the file comes from stdin
-            _ => {},                    // Assume argument is filename and move on
-        }
+            "-s" => return get_std(), // -s indicates that the file comes from stdin
+            _ => {}                   // Assume argument is filename and move on
+        },
         _ => return Err("Too many arguments provided".to_owned()),
     };
 
-    let mut program = String::new();    // Create string buffer to hold the contents of the file
-    // Ensure file can be opened
-    let mut file = match File::open(&args[1]) {
+    let content = read_file(&args[1])?;
+
+    Ok(content)
+}
+
+pub fn read_file(filename: &str) -> Result<String, String> {
+    let mut content = String::new(); // Create string buffer to hold the contents of the file
+                                     // Ensure file can be opened
+    let mut file = match File::open(filename) {
         Ok(file) => file,
         Err(e) => {
-            // If File::create fails, error.
+            // If File::open fails, error.
             return Err(format!(
                 "File {} couldn't be opened. File::open(...) returned the following error:\n  {}",
-                args[1], e
+                filename, e
             ));
         }
     };
 
     // Ensure opened file can be read
-    if let Err(e) = file.read_to_string(&mut program) {
+    if let Err(e) = file.read_to_string(&mut content) {
         // If read_to_string fails, print error and return
         return Err(format!(
             "File {} couldn't be read. file.read_to_string(...) returned the following error:\n  {}",
-            args[1], e
+            filename, e
         ));
     };
 
-    Ok(program)
+    Ok(content)
 }
 
 fn get_std() -> Result<String, String> {

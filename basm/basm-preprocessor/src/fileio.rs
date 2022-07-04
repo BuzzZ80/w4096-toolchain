@@ -19,12 +19,12 @@ pub fn get_input() -> Result<String, String> {
 
     let mut program = String::new();    // Create string buffer to hold the contents of the file
     // Ensure file can be opened
-    let mut file = match File::create(&args[1]) {
+    let mut file = match File::open(&args[1]) {
         Ok(file) => file,
         Err(e) => {
             // If File::create fails, error.
             return Err(format!(
-                "File {} couldn't be opened. File::create(...) returned the following error:\n  {}",
+                "File {} couldn't be opened. File::open(...) returned the following error:\n  {}",
                 args[1], e
             ));
         }

@@ -1,12 +1,12 @@
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct CodeMap {
     pub filenames: Vec<String>,
     pub line_entries: Vec<LineEntry>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct LineEntry {
     filename_index: usize,
     line: usize,

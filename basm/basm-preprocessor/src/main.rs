@@ -4,7 +4,7 @@ mod lexer;
 mod parser;
 
 fn main() {
-    let program = match fileio::get_input() {
+    let (filename, program) = match fileio::get_input() {
         Ok(s) => s,
         Err(e) => {
             println!("BASM-PREPROCESSOR: {}", e);
@@ -12,7 +12,7 @@ fn main() {
         }
     };
 
-    let mut lexer = lexer::Lexer::new(program);
+    let mut lexer = lexer::Lexer::new(filename.to_owned(), program);
 
     match lexer.tokenize() {
         Ok(()) => {}
@@ -22,7 +22,7 @@ fn main() {
         }
     }
 
-    let mut parser = parser::Parser::new(lexer.tokens);
+    let mut parser = parser::Parser::new(filename.to_owned(), lexer.tokens);
 
     match parser.parse() {
         Ok(()) => {}
@@ -33,4 +33,5 @@ fn main() {
     }
 
     println!("{}", parser.output);
+    println!("{:#?}", parser.map);
 }

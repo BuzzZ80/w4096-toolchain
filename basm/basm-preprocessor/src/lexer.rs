@@ -28,6 +28,7 @@ pub struct Lexer {
     span: (usize, usize),
     line: usize,
     state: ReadKind,
+    filename: String,
 }
 
 /// Returns a portion of a data from the start until pred returns false
@@ -165,7 +166,7 @@ fn tokenize_directive(data: &str) -> Result<Token, String> {
 }
 
 impl Lexer {
-    pub fn new(data: String) -> Self {
+    pub fn new(filename: String, data: String) -> Self {
         let tokens = Vec::new();
         let span = (0, data.len());
         let line = 1;
@@ -177,6 +178,7 @@ impl Lexer {
             span,
             line,
             state,
+            filename,
         }
     }
 
@@ -203,7 +205,12 @@ impl Lexer {
                 ';' => (TokenKind::None, skip_comment(self.get_selected())),
                 _ => match self.tokenize_one_token() {
                     Ok(tok) => (tok.kind, tok.span),
-                    Err(e) => return Err(format!("Error on line {}:\n  {}", self.line, e)),
+                    Err(e) => return Err(format!(
+                        "Error on line {} of {}:\n  {}", 
+                        self.line, 
+                        self.filename,
+                        e
+                    )),
                 },
             };
             self.consume(span);

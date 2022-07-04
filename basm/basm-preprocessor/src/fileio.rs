@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::Read;
 
-pub fn get_input() -> Result<String, String> {
+pub fn get_input() -> Result<(String, String), String> {
     // Get command line arguments
     let args: Vec<String> = env::args().collect();
 
@@ -11,15 +11,15 @@ pub fn get_input() -> Result<String, String> {
     match args.len() {
         1 => return Err("Expected at least one argument".to_owned()),
         2 => match &args[1][0..=1] {
-            "-s" => return get_std(), // -s indicates that the file comes from stdin
-            _ => {}                   // Assume argument is filename and move on
+            "-s" => return get_std(),   // -s indicates that the file comes from stdin
+            _ => {}                     // Assume argument is filename and move on
         },
         _ => return Err("Too many arguments provided".to_owned()),
     };
 
     let content = read_file(&args[1])?;
 
-    Ok(content)
+    Ok((args[1].to_owned(), content))
 }
 
 pub fn read_file(filename: &str) -> Result<String, String> {
@@ -49,12 +49,12 @@ pub fn read_file(filename: &str) -> Result<String, String> {
     Ok(content)
 }
 
-fn get_std() -> Result<String, String> {
+fn get_std() -> Result<(String, String), String> {
     let stdin = io::stdin();
     let mut buf = String::new();
     match stdin.lock().read_to_string(&mut buf) {
         Ok(n) => println!("BASM-PREPROCESSOR: {n} bytes read from stdin."),
         Err(e) => return Err(format!("Couldn't read from stdin, error:\n  {}", e)),
     }
-    Ok(buf)
+    Ok(("stdin".to_owned(), buf)) // Return read file plus stdin "filename"
 }

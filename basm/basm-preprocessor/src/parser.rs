@@ -4,6 +4,7 @@ use crate::lexer::{Lexer, Token, TokenKind};
 
 pub struct Parser {
     tokens: Vec<Token>,
+    filename: String,
     index: usize,
     line: usize,
     pub map: CodeMap,
@@ -11,9 +12,10 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(filename: String, tokens: Vec<Token>) -> Self {
         Self {
             tokens,
+            filename,
             index: 0,
             line: 1,
             map: CodeMap::new(),
@@ -22,11 +24,18 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<(), String> {
+        self.map.filenames.push(self.filename.to_owned());
+        self.map.add_entry(0, self.line);
         loop {
             match self.parse_single_expr() {
                 Ok(Some(())) => {}
                 Ok(None) => break,
-                Err(e) => return Err(format!("Error on line {}:\n  {}", self.line, e,)),
+                Err(e) => return Err(format!(
+                    "Error on line {} of {}:\n  {}", 
+                    self.line, 
+                    self.map.filenames[0],
+                    e,
+                )),
             }
         }
         Ok(())
@@ -43,6 +52,7 @@ impl Parser {
                 self.output.push('\n');
                 self.line += 1;
                 self.next();
+                self.map.add_entry(0, self.line);
             }
             TokenKind::Whitespace => {
                 self.output.push(' ');
@@ -96,10 +106,10 @@ impl Parser {
                     return Err("#include expects exactly one string parameter".to_owned());
                 }
                 if let TokenKind::String(path) = &params[0] {
-                    let subprogram = read_file(path)?;          // Read file
-                    let mut lexer = Lexer::new(subprogram);     // Lex the file
+                    let subprogram = read_file(path)?;                          // Read file
+                    let mut lexer = Lexer::new(path.to_owned(), subprogram);    // Lex the file
                     lexer.tokenize()?;
-                    let mut parser = Self::new(lexer.tokens);   // Parse the file
+                    let mut parser = Self::new(path.to_owned(), lexer.tokens);  // Parse the file
                     parser.parse()?;
                     self.output.push_str(&parser.output);       // Add contents of the other file
                     self.map.push(&parser.map);                 // Add the codemap of the other file

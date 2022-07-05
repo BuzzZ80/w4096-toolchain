@@ -39,3 +39,17 @@ impl CodeMap {
         self.filenames.extend_from_slice(other.filenames.as_slice());
     }
 }
+
+impl std::fmt::Display for CodeMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "Filenames:")?;
+        for name in &self.filenames {
+            writeln!(f, "  {}", name)?;
+        };
+        writeln!(f, "Lines:")?;
+        for entry in &self.line_entries {
+            writeln!(f, "  {}:{}", self.filenames[entry.filename_index], entry.line)?;
+        }
+        Ok(())
+    }
+}

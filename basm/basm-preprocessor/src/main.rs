@@ -33,12 +33,5 @@ fn main() {
     }
 
     println!("{}", parser.output);
-    //println!("{:#?}", parser.map);
-    for def in parser.deflist {
-        print!("Label '{}':", def.0);
-        for tok in def.1 {
-            print!("{}", tok);
-        }
-        println!();
-    }
+    println!("{}", parser.map);
 }

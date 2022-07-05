@@ -7,7 +7,7 @@ pub struct Parser<'a> {
     tokens: &'a [Token],
     pub output: String,
     pub map: CodeMap,
-    pub deflist: HashMap<String, &'a [Token]>,
+    pub deflist: HashMap<String, (usize, usize)>,
     index: usize,
     line: usize,
     filename: String,
@@ -45,6 +45,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_single_expr(&mut self) -> Result<Option<()>, String> {
+        // println!("{}", self.peek().unwrap());
         let tok = match self.peek() {
             Some(t) => t,
             None => return Ok(None),
@@ -56,16 +57,34 @@ impl<'a> Parser<'a> {
                 self.line += 1;
                 self.next();
                 self.map.add_entry(0, self.line);
-                self.consume_whitespace();
             }
             TokenKind::Whitespace => {
                 self.output.push(' ');
                 self.next();
             }
             TokenKind::Code(d) => {
-                let d = &d.to_owned();
-                self.output.push_str(d);
-                self.next();
+                if let Some(param_span) = self.deflist.get(d) {
+                    let param_span = *param_span;
+                    let prev_index = self.index;    // Save previous state
+                    // Add one as to not include the label from the #DEFINE 
+                    self.index = param_span.0 + 1;
+
+                    while self.index <= param_span.1 {
+                        match self.parse_single_expr() {
+                            Ok(Some(())) => {}
+                            Ok(None) => break,
+                            Err(e) => {
+                                return Err(format!("Failed replacing label. {e}"));
+                            }
+                        }
+                    }
+
+                    self.index = prev_index + 1;
+                } else {
+                    let d = &d.to_owned();
+                    self.output.push_str(d);
+                    self.next();
+                }
             }
             TokenKind::String(d) => {
                 let d = &d.to_owned();
@@ -156,7 +175,7 @@ impl<'a> Parser<'a> {
                                 def
                             );
                         }
-                        self.deflist.insert(def.to_owned(), &self.tokens[param_span.0 + 1..param_span.1]);
+                        self.deflist.insert(def.to_owned(), param_span);
                     }
                     t => return Err(format!(
                         "#DEFINE expects a name as its first argument to be used as the constant's name.\n  Found {:?}",

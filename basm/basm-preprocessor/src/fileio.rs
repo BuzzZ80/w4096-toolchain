@@ -57,7 +57,7 @@ fn get_std() -> Result<(String, String), String> {
     let stdin = io::stdin();
     let mut data = String::new();
     match stdin.lock().read_to_string(&mut data) {
-        Ok(n) => println!("BASM-PREPROCESSOR: {n} bytes read from stdin."),
+        Ok(n) => println!("\x1b[95mBASM-PREPROCESSOR:\x1b[0m {n} bytes read from stdin."),
         Err(e) => return Err(format!("Couldn't read from stdin, error:\n  {}", e)),
     }
     Ok(("stdin".to_owned(), data)) // Return read file plus stdin "filename"

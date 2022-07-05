@@ -196,13 +196,13 @@ impl<'a> Parser<'a> {
     }
 
     fn consume_whitespace(&mut self) {
-        match self.peek() {
-            // If whitespace is found, skip over it
-            Some(Token {
-                kind: TokenKind::Whitespace,
-                ..
-            }) => self.index += 1,
-            _ => {}
+        // If whitespace is found, skip over it
+        if let Some(Token {
+            kind: TokenKind::Whitespace,
+            ..
+        }) = self.peek()
+        {
+            self.index += 1;
         }
     }
 

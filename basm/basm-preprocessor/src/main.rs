@@ -32,6 +32,6 @@ fn main() {
         }
     }
 
-    println!("{}", parser.output);
-    println!("{}", parser.map);
+    fileio::write_asm_file(&parser.output);
+    fileio::write_map_file(&parser.map);
 }

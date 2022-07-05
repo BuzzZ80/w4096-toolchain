@@ -1,7 +1,11 @@
 use std::env;
 use std::fs::File;
 use std::io;
-use std::io::prelude::Read;
+use std::io::prelude::{Read, Write};
+use crate::codemap::CodeMap;
+
+const ASM_FILENAME: &str = "out.basm";
+const MAP_FILENAME: &str = "out.map";
 
 pub fn get_input() -> Result<(String, String), String> {
     // Get command line arguments
@@ -17,13 +21,13 @@ pub fn get_input() -> Result<(String, String), String> {
         _ => return Err("Too many arguments provided".to_owned()),
     };
 
-    let content = read_file(&args[1])?;
+    let data = read_file(&args[1])?;
 
-    Ok((args[1].to_owned(), content))
+    Ok((args[1].to_owned(), data))
 }
 
 pub fn read_file(filename: &str) -> Result<String, String> {
-    let mut content = String::new(); // Create string buffer to hold the contents of the file
+    let mut data = String::new(); // Create string buffer to hold the contents of the file
 
     // Ensure file can be opened
     let mut file = match File::open(filename) {
@@ -38,7 +42,7 @@ pub fn read_file(filename: &str) -> Result<String, String> {
     };
 
     // Ensure opened file can be read
-    if let Err(e) = file.read_to_string(&mut content) {
+    if let Err(e) = file.read_to_string(&mut data) {
         // If read_to_string fails, print error and return
         return Err(format!(
             "File {} couldn't be read. file.read_to_string(...) returned the following error:\n  {}",
@@ -46,15 +50,57 @@ pub fn read_file(filename: &str) -> Result<String, String> {
         ));
     };
 
-    Ok(content)
+    Ok(data)
 }
 
 fn get_std() -> Result<(String, String), String> {
     let stdin = io::stdin();
-    let mut buf = String::new();
-    match stdin.lock().read_to_string(&mut buf) {
+    let mut data = String::new();
+    match stdin.lock().read_to_string(&mut data) {
         Ok(n) => println!("BASM-PREPROCESSOR: {n} bytes read from stdin."),
         Err(e) => return Err(format!("Couldn't read from stdin, error:\n  {}", e)),
     }
-    Ok(("stdin".to_owned(), buf)) // Return read file plus stdin "filename"
+    Ok(("stdin".to_owned(), data)) // Return read file plus stdin "filename"
+}
+
+pub fn write_asm_file(data: &str) -> Result<(), String> {
+    let mut file = match File::create(ASM_FILENAME) {
+        Ok(f) => f,
+        Err(e) => return Err(format!(
+            "{} couldn't be created. File::create(...) returned the following error:\n  {}",
+            ASM_FILENAME,
+            e,
+        )),
+    };
+
+    if let Err(e) = file.write_all(data.as_bytes()) {
+        return Err(format!(
+            "{} couldn't be written to. file.write_all(...) returned the following error:\n  {}",
+            MAP_FILENAME,
+            e,
+        ));
+    };
+
+    Ok(())
+}
+
+pub fn write_map_file(data: &CodeMap) -> Result<(), String> {
+    let mut file = match File::create(MAP_FILENAME) {
+        Ok(f) => f,
+        Err(e) => return Err(format!(
+            "{} couldn't be created. File::create(...) returned the following error:\n  {}",
+            ASM_FILENAME,
+            e,
+        )),
+    };
+
+    if let Err(e) = file.write_all(&bincode::serialize(data).unwrap()) {
+        return Err(format!(
+            "{} couldn't be written to. file.write_all(...) returned the following error:\n  {}",
+            MAP_FILENAME,
+            e,
+        ));
+    };
+
+    Ok(())
 }

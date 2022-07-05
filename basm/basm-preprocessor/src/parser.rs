@@ -65,8 +65,8 @@ impl<'a> Parser<'a> {
             TokenKind::Code(d) => {
                 if let Some(param_span) = self.deflist.get(d) {
                     let param_span = *param_span;
-                    let prev_index = self.index;    // Save previous state
-                    // Add one as to not include the label from the #DEFINE 
+                    let prev_index = self.index; // Save previous state
+                                                 // Add one as to not include the label from the #DEFINE
                     self.index = param_span.0 + 1;
 
                     while self.index <= param_span.1 {

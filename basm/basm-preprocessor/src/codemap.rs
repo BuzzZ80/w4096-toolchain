@@ -45,10 +45,14 @@ impl std::fmt::Display for CodeMap {
         writeln!(f, "Filenames:")?;
         for name in &self.filenames {
             writeln!(f, "  {}", name)?;
-        };
+        }
         writeln!(f, "Lines:")?;
         for entry in &self.line_entries {
-            writeln!(f, "  {}:{}", self.filenames[entry.filename_index], entry.line)?;
+            writeln!(
+                f,
+                "  {}:{}",
+                self.filenames[entry.filename_index], entry.line
+            )?;
         }
         Ok(())
     }

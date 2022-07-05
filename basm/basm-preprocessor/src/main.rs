@@ -12,7 +12,7 @@ fn main() {
         }
     };
 
-    let mut lexer = lexer::Lexer::new(filename.to_owned(), program);
+    let mut lexer = lexer::Lexer::new(&filename, program);
 
     match lexer.tokenize() {
         Ok(()) => {}
@@ -22,7 +22,7 @@ fn main() {
         }
     }
 
-    let mut parser = parser::Parser::new(filename.to_owned(), lexer.tokens);
+    let mut parser = parser::Parser::new(&filename, lexer.tokens.as_slice());
 
     match parser.parse() {
         Ok(()) => {}
@@ -33,5 +33,12 @@ fn main() {
     }
 
     println!("{}", parser.output);
-    println!("{:#?}", parser.map);
+    //println!("{:#?}", parser.map);
+    for def in parser.deflist {
+        print!("Label '{}':", def.0);
+        for tok in def.1 {
+            print!("{}", tok);
+        }
+        println!();
+    }
 }

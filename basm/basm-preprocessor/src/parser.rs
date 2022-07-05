@@ -1,25 +1,28 @@
+use std::collections::HashMap;
 use crate::codemap::CodeMap;
 use crate::fileio::read_file;
 use crate::lexer::{Lexer, Token, TokenKind};
 
-pub struct Parser {
-    tokens: Vec<Token>,
-    filename: String,
+pub struct Parser<'a> {
+    tokens: &'a [Token],
+    pub output: String,
+    pub map: CodeMap,
+    pub deflist: HashMap<String, &'a [Token]>,
     index: usize,
     line: usize,
-    pub map: CodeMap,
-    pub output: String,
+    filename: String,
 }
 
-impl Parser {
-    pub fn new(filename: String, tokens: Vec<Token>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(filename: &str, tokens: &'a [Token]) -> Self {
         Self {
             tokens,
-            filename,
+            output: String::new(),
+            map: CodeMap::new(),
+            deflist: HashMap::new(),
             index: 0,
             line: 1,
-            map: CodeMap::new(),
-            output: String::new(),
+            filename: filename.to_owned(),
         }
     }
 
@@ -31,7 +34,7 @@ impl Parser {
                 Ok(Some(())) => {}
                 Ok(None) => break,
                 Err(e) => return Err(format!(
-                    "Error on line {} of {}:\n  {}", 
+                    "Error on line {} of {}:\n  {}",
                     self.line, 
                     self.map.filenames[0],
                     e,
@@ -53,6 +56,7 @@ impl Parser {
                 self.line += 1;
                 self.next();
                 self.map.add_entry(0, self.line);
+                //self.consume_whitespace();
             }
             TokenKind::Whitespace => {
                 self.output.push(' ');
@@ -85,15 +89,14 @@ impl Parser {
             None => return Err("parse_directive() called on EOF".to_owned()),
         };
 
+        self.consume_whitespace(); // Ignore whitespace if it's there
+
         // Get arguments passed to the directive, up until a newline
-        let mut params = Vec::<TokenKind>::new();
+        let mut param_span = (self.index, self.index);
         loop {
             match self.peek() {
-                Some(t) if matches!(
-                    t.kind,
-                    TokenKind::Integer(_) | TokenKind::String(_) | TokenKind::Code(_)
-                ) => {
-                    params.push(t.kind.to_owned());
+                Some(t) if !matches!(t.kind, TokenKind::Newline) => {
+                    param_span.1 += 1;
                     self.next();
                 }
                 _ => break,
@@ -102,23 +105,55 @@ impl Parser {
 
         match directive {
             TokenKind::Include => {
-                if params.len() != 1 {
+                // If there's not exactly one parameter, error
+                if param_span.1 - param_span.0 == 0 {
                     return Err("#include expects exactly one string parameter".to_owned());
                 }
-                if let TokenKind::String(path) = &params[0] {
-                    let subprogram = read_file(path)?;                          // Read file
-                    let mut lexer = Lexer::new(path.to_owned(), subprogram);    // Lex the file
+
+                // Get the file and insert it into the program
+                if let TokenKind::String(path) = &self.tokens[param_span.0].kind {
+                    let subprogram = read_file(path.as_str())?;                 // Read file
+                    let mut lexer = Lexer::new(path.as_str(), subprogram);      // Lex the file
                     lexer.tokenize()?;
-                    let mut parser = Self::new(path.to_owned(), lexer.tokens);  // Parse the file
+                    let mut parser = Parser::new(path.as_str(), lexer.tokens.as_slice());   // Parse the file
                     parser.parse()?;
-                    self.output.push_str(&parser.output);       // Add contents of the other file
-                    self.map.push(&parser.map);                 // Add the codemap of the other file
+                    self.output.push_str(&parser.output);   // Add contents of the other file
+                    self.map.push(&parser.map);             // Add the codemap of the other file
+                } else {
+                    return Err(format!("#include expects just one string parameter. Found {:?}", self.tokens[self.index].kind));
                 }
+            }
+            TokenKind::Define => {
+                if param_span.1 - param_span.0 == 0 {
+                    return Err(
+                        "#define expects at least one parameter, with the first always being a name or string"
+                        .to_owned()
+                    );
+                }
+
+                match &self.tokens[param_span.0].kind {
+                    TokenKind::String(def) | TokenKind::Code(def) => self.deflist.insert(def.to_owned(), &self.tokens[param_span.0 + 1..param_span.1]),
+                    t => return Err(format!(
+                        "#define expects a name or string as its first argument to be used as the constant's name.\n  Found {:#?}",
+                        t
+                    )),
+                };
             }
             _ => return Err("Not implemented".to_owned()),
         }
 
         Ok(Some(()))
+    }
+
+    fn consume_whitespace(&mut self) {
+        match self.peek() {
+            // If whitespace is found, skip over it
+            Some(Token {
+                kind: TokenKind::Whitespace,
+                ..
+            }) => self.index += 1,
+            _ => {},
+        }
     }
 
     fn peek(&self) -> Option<&Token> {

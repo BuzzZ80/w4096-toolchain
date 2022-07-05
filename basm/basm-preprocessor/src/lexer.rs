@@ -7,19 +7,13 @@ pub enum TokenKind {
     Include,      // For including other asm files
     Define,       // For defining constants
     Undef,        // For undefining constants
-    Integer(i64),
     String(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: usize,
-}
-
-enum ReadKind {
-    PassThrough,
-    ReadParameters,
 }
 
 pub struct Lexer {
@@ -27,7 +21,6 @@ pub struct Lexer {
     pub tokens: Vec<Token>,
     span: (usize, usize),
     line: usize,
-    state: ReadKind,
     filename: String,
 }
 
@@ -73,40 +66,6 @@ fn skip_comment(data: &str) -> usize {
     0
 }
 
-/// Returns the length of a span from a ; to a newline
-fn skip_code(data: &str) -> usize {
-    let bytes_read = match take_while(data, |c| c != '\n' && c != ';') {
-        Ok((_, bytes_read)) => bytes_read,
-        Err(_) => panic!("Unexpected EOF in skip_line"),
-    };
-    return bytes_read;
-}
-
-/// Returns the integer value of any decimal, binary, or hex string that data starts with
-fn tokenize_number(data: &str) -> Result<Token, String> {
-    let (read, bytes_read) = take_while(data, |c| c.is_alphanumeric())?;
-
-    let result_num = if read.len() > 2 {
-        match &read[0..2] {
-            "0x" => i64::from_str_radix(&read[2..], 16),
-            "0b" => i64::from_str_radix(&read[2..], 2),
-            _ => read.parse::<i64>(),
-        }
-    } else {
-        read.parse::<i64>()
-    };
-
-    let num = match result_num {
-        Ok(n) => n,
-        Err(_) => return Err(format!("Could not parse number: '{}'", read)),
-    };
-
-    Ok(Token {
-        kind: TokenKind::Integer(num),
-        span: bytes_read,
-    })
-}
-
 /// Returns a String from the 2nd char of data to the next ", will break if there's no "
 fn tokenize_string_literal(data: &str) -> Result<Token, String> {
     let mut final_string = String::new();
@@ -148,8 +107,24 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
     })
 }
 
+fn tokenize_word(data: &str) -> Result<Token, String> {
+    let (read, bytes_read) = take_while(data, |c| c == '_' || c.is_alphanumeric())?;
+    Ok(Token{
+        kind: TokenKind::Code(read.to_owned()),
+        span: bytes_read,
+    })
+}
+
+fn tokenize_other(data: &str) -> Result<Token, String> {
+    let (read, bytes_read) = take_while(data, |c| !c.is_whitespace())?;
+    Ok(Token{
+        kind: TokenKind::Code(read.to_owned()),
+        span: bytes_read,
+    })
+}
+
 /// Tokenizes a single directive
-fn tokenize_directive(data: &str) -> Result<Token, String> {
+fn tokenize_directive(data: &str) -> Result<Token, String> { 
     let (read, bytes_read) = take_while(data, |c| c == '_' || c == '#' || c.is_alphanumeric())?;
 
     let token_kind = match &read.to_lowercase()[..] {
@@ -166,18 +141,17 @@ fn tokenize_directive(data: &str) -> Result<Token, String> {
 }
 
 impl Lexer {
-    pub fn new(filename: String, data: String) -> Self {
+    pub fn new(filename: &str, data: String) -> Self {
+        let filename = filename.to_owned();
         let tokens = Vec::new();
         let span = (0, data.len());
         let line = 1;
-        let state = ReadKind::PassThrough;
 
         Self {
             data,
             tokens,
             span,
             line,
-            state,
             filename,
         }
     }
@@ -190,14 +164,9 @@ impl Lexer {
                 .nth(self.span.0)
                 .unwrap_or_else(|| panic!("Lexer object span broke. Did you forget a '\"'?\n"))
             {
-                c if c.is_whitespace() && c != '\n' => match self.state {
-                    ReadKind::PassThrough => {
-                        (TokenKind::Whitespace, skip_white_space(self.get_selected()))
-                    }
-                    ReadKind::ReadParameters => {
-                        (TokenKind::None, skip_white_space(self.get_selected()))
-                    }
-                },
+                c if c.is_whitespace() && c != '\n' => {
+                    (TokenKind::Whitespace, skip_white_space(self.get_selected()))
+                }
                 '\n' => {
                     self.line += 1;
                     (TokenKind::Newline, 1)
@@ -230,24 +199,16 @@ impl Lexer {
             None => return Err("Unexpected EOF".to_owned()),
         };
 
-        let tok = match next {
+        match next {
             '#' => {
-                self.state = ReadKind::ReadParameters;
-                tokenize_directive(data)?
+                tokenize_directive(data)
             }
-            '"' => tokenize_string_literal(data)?,
-            '0'..='9' => tokenize_number(data)?,
+            '"' => tokenize_string_literal(data),
+            c if c.is_alphanumeric() => tokenize_word(data),
             _ => {
-                self.state = ReadKind::PassThrough;
-                let span = skip_code(data);
-                Token {
-                    kind: TokenKind::Code(data[0..span].to_owned()),
-                    span,
-                }
+                tokenize_other(data)
             }
-        };
-
-        Ok(tok)
+        }
     }
 
     fn consume(&mut self, amount: usize) {
@@ -257,5 +218,20 @@ impl Lexer {
 
     fn get_selected(&self) -> &str {
         &self.data[self.span.0..self.span.1]
+    }
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self.kind {
+            TokenKind::Code(s) => write!(f, "{}", s),
+            TokenKind::Newline => write!(f, "\n"),
+            TokenKind::Whitespace => write!(f, " "),
+            TokenKind::None => Ok(()),
+            TokenKind::Include => write!(f, "#INCLUDE"),
+            TokenKind::Define => write!(f, "#DEFINE"),
+            TokenKind::Undef => write!(f, "#UNDEF"),
+            TokenKind::String(s) => write!(f, r#""{}""#, s), 
+        }
     }
 }

@@ -67,10 +67,17 @@ impl<'a> Parser<'a> {
                 self.output.push_str(d);
                 self.next();
             }
+            TokenKind::String(d) => {
+                let d = &d.to_owned();
+                self.output.push('"');
+                self.output.push_str(d);
+                self.output.push('"');
+                self.next();
+            }
             TokenKind::Include | TokenKind::Define | TokenKind::Undef => {
                 self.parse_directive()?;
             }
-            t => return Err(format!("Unexpected token {:?}", t)),
+            TokenKind::None => {}
         }
 
         Ok(Some(()))

@@ -26,15 +26,15 @@ impl CodeMap {
         });
     }
     pub fn push(&mut self, other: &Self) {
-        let offset = self.filenames.len();  // How much to add to each filename index
+        let offset = self.filenames.len(); // How much to add to each filename index
 
         // Go through modifying and adding each line entry
         for entry in &other.line_entries {
-            self.line_entries.push(LineEntry{
-                filename_index: entry.filename_index + offset,  // Add offset for new filenames
-                line: entry.line,                               // Keep same line as before :)
+            self.line_entries.push(LineEntry {
+                filename_index: entry.filename_index + offset, // Add offset for new filenames
+                line: entry.line,                              // Keep same line as before :)
             });
-        };
+        }
 
         self.filenames.extend_from_slice(other.filenames.as_slice());
     }

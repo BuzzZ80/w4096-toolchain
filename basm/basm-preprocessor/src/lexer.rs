@@ -109,7 +109,7 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
 
 fn tokenize_word(data: &str) -> Result<Token, String> {
     let (read, bytes_read) = take_while(data, |c| c == '_' || c.is_alphanumeric())?;
-    Ok(Token{
+    Ok(Token {
         kind: TokenKind::Code(read.to_owned()),
         span: bytes_read,
     })
@@ -117,14 +117,14 @@ fn tokenize_word(data: &str) -> Result<Token, String> {
 
 fn tokenize_other(data: &str) -> Result<Token, String> {
     let (read, bytes_read) = take_while(data, |c| !c.is_whitespace())?;
-    Ok(Token{
+    Ok(Token {
         kind: TokenKind::Code(read.to_owned()),
         span: bytes_read,
     })
 }
 
 /// Tokenizes a single directive
-fn tokenize_directive(data: &str) -> Result<Token, String> { 
+fn tokenize_directive(data: &str) -> Result<Token, String> {
     let (read, bytes_read) = take_while(data, |c| c == '_' || c == '#' || c.is_alphanumeric())?;
 
     let token_kind = match &read.to_lowercase()[..] {
@@ -174,12 +174,12 @@ impl Lexer {
                 ';' => (TokenKind::None, skip_comment(self.get_selected())),
                 _ => match self.tokenize_one_token() {
                     Ok(tok) => (tok.kind, tok.span),
-                    Err(e) => return Err(format!(
-                        "Error on line {} of {}:\n  {}", 
-                        self.line, 
-                        self.filename,
-                        e
-                    )),
+                    Err(e) => {
+                        return Err(format!(
+                            "\x1b[91mError on line {} of {}:\x1b[0m\n  {}",
+                            self.line, self.filename, e
+                        ))
+                    }
                 },
             };
             self.consume(span);
@@ -200,14 +200,10 @@ impl Lexer {
         };
 
         match next {
-            '#' => {
-                tokenize_directive(data)
-            }
+            '#' => tokenize_directive(data),
             '"' => tokenize_string_literal(data),
             c if c.is_alphanumeric() => tokenize_word(data),
-            _ => {
-                tokenize_other(data)
-            }
+            _ => tokenize_other(data),
         }
     }
 
@@ -231,7 +227,7 @@ impl std::fmt::Display for Token {
             TokenKind::Include => write!(f, "#INCLUDE"),
             TokenKind::Define => write!(f, "#DEFINE"),
             TokenKind::Undef => write!(f, "#UNDEF"),
-            TokenKind::String(s) => write!(f, r#""{}""#, s), 
+            TokenKind::String(s) => write!(f, r#""{}""#, s),
         }
     }
 }

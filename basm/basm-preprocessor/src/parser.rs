@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use crate::codemap::CodeMap;
 use crate::fileio::read_file;
 use crate::lexer::{Lexer, Token, TokenKind};
+use std::collections::HashMap;
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
@@ -33,12 +33,12 @@ impl<'a> Parser<'a> {
             match self.parse_single_expr() {
                 Ok(Some(())) => {}
                 Ok(None) => break,
-                Err(e) => return Err(format!(
-                    "Error on line {} of {}:\n  {}",
-                    self.line, 
-                    self.map.filenames[0],
-                    e,
-                )),
+                Err(e) => {
+                    return Err(format!(
+                        "\x1b[91mError on line {} of {}:\x1b[0m\n  {}",
+                        self.line, self.map.filenames[0], e,
+                    ))
+                }
             }
         }
         Ok(())
@@ -56,7 +56,7 @@ impl<'a> Parser<'a> {
                 self.line += 1;
                 self.next();
                 self.map.add_entry(0, self.line);
-                //self.consume_whitespace();
+                self.consume_whitespace();
             }
             TokenKind::Whitespace => {
                 self.output.push(' ');
@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
             TokenKind::Include | TokenKind::Define | TokenKind::Undef => {
                 self.parse_directive()?;
             }
-            t => return Err(format!("Unexpected token {:#?}", t)),
+            t => return Err(format!("Unexpected token {:?}", t)),
         }
 
         Ok(Some(()))
@@ -79,13 +79,15 @@ impl<'a> Parser<'a> {
     fn parse_directive(&mut self) -> Result<Option<()>, String> {
         // Get the type of directive, if it's a directive and exists
         let directive = match self.next() {
-            Some(t) if matches!(
-                t.kind,
-                TokenKind::Include | TokenKind::Define | TokenKind::Undef
-            ) => {
+            Some(t)
+                if matches!(
+                    t.kind,
+                    TokenKind::Include | TokenKind::Define | TokenKind::Undef
+                ) =>
+            {
                 t.kind.to_owned()
-            },
-            Some(t) => return Err(format!("parse_directive() called on {:#?}", t)),
+            }
+            Some(t) => return Err(format!("parse_directive() called on {:?}", t)),
             None => return Err("parse_directive() called on EOF".to_owned()),
         };
 
@@ -107,39 +109,80 @@ impl<'a> Parser<'a> {
             TokenKind::Include => {
                 // If there's not exactly one parameter, error
                 if param_span.1 - param_span.0 == 0 {
-                    return Err("#include expects exactly one string parameter".to_owned());
+                    return Err(
+                        "#INCLUDE expects exactly one string parameter. No parameters found."
+                            .to_owned(),
+                    );
                 }
 
                 // Get the file and insert it into the program
                 if let TokenKind::String(path) = &self.tokens[param_span.0].kind {
-                    let subprogram = read_file(path.as_str())?;                 // Read file
-                    let mut lexer = Lexer::new(path.as_str(), subprogram);      // Lex the file
+                    let subprogram = read_file(path.as_str())?; // Read file
+                    let mut lexer = Lexer::new(path.as_str(), subprogram); // Lex the file
                     lexer.tokenize()?;
-                    let mut parser = Parser::new(path.as_str(), lexer.tokens.as_slice());   // Parse the file
+                    let mut parser = Parser::new(path.as_str(), lexer.tokens.as_slice()); // Parse the file
                     parser.parse()?;
-                    self.output.push_str(&parser.output);   // Add contents of the other file
-                    self.map.push(&parser.map);             // Add the codemap of the other file
+                    self.output.push_str(&parser.output); // Add contents of the other file
+                    self.map.push(&parser.map); // Add the codemap of the other file
                 } else {
-                    return Err(format!("#include expects just one string parameter. Found {:?}", self.tokens[self.index].kind));
+                    return Err(format!(
+                        "#INCLUDE expects just one string parameter. Found {:?}",
+                        self.tokens[self.index].kind
+                    ));
                 }
             }
             TokenKind::Define => {
                 if param_span.1 - param_span.0 == 0 {
                     return Err(
-                        "#define expects at least one parameter, with the first always being a name or string"
+                        "#DEFINE expects at least one parameter, with the first always being a name or string. No parameters found."
                         .to_owned()
                     );
                 }
 
                 match &self.tokens[param_span.0].kind {
-                    TokenKind::String(def) | TokenKind::Code(def) => self.deflist.insert(def.to_owned(), &self.tokens[param_span.0 + 1..param_span.1]),
+                    TokenKind::Code(def) => {
+                        if self.deflist.contains_key(def) {
+                            println!(
+                                "\x1b[35mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #DEFINE is called on '{}', but it was previously defined (value was overwritten)", 
+                                self.line,
+                                self.filename,
+                                def
+                            );
+                        }
+                        self.deflist.insert(def.to_owned(), &self.tokens[param_span.0 + 1..param_span.1]);
+                    }
                     t => return Err(format!(
-                        "#define expects a name or string as its first argument to be used as the constant's name.\n  Found {:#?}",
+                        "#DEFINE expects a name as its first argument to be used as the constant's name.\n  Found {:?}",
                         t
                     )),
                 };
             }
-            _ => return Err("Not implemented".to_owned()),
+            TokenKind::Undef => {
+                // If there's not exactly one parameter, error
+                if param_span.1 - param_span.0 == 0 {
+                    return Err(
+                        "#UNDEF expects exactly one string parameter. No parameters found."
+                            .to_owned(),
+                    );
+                }
+
+                match &self.tokens[param_span.0].kind {
+                    TokenKind::Code(def) => match self.deflist.remove(def) {
+                        Some(_) => {},
+                        None => println!("\x1b[35mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #UNDEF is called on '{}', but it was not previously defined", self.line, self.filename, def),
+                    }
+                    t => return Err(format!(
+                        "#UNDEF expects one name parameter\n  Found {:?}",
+                        t
+                    )),
+                };
+            }
+            t => {
+                return Err(format!(
+                    "parse_directive() expected a directive, found '{:?}'",
+                    t
+                ))
+            }
         }
 
         Ok(Some(()))
@@ -152,7 +195,7 @@ impl<'a> Parser<'a> {
                 kind: TokenKind::Whitespace,
                 ..
             }) => self.index += 1,
-            _ => {},
+            _ => {}
         }
     }
 

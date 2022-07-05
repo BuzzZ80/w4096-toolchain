@@ -9,10 +9,10 @@ pub fn get_input() -> Result<(String, String), String> {
 
     // Interpret arguments
     match args.len() {
-        1 => return Err("Expected at least one argument".to_owned()),
+        1 => return Err("Expected at least one command line argument".to_owned()),
         2 => match &args[1][0..=1] {
-            "-s" => return get_std(),   // -s indicates that the file comes from stdin
-            _ => {}                     // Assume argument is filename and move on
+            "-s" => return get_std(), // -s indicates that the file comes from stdin
+            _ => {}                   // Assume argument is filename and move on
         },
         _ => return Err("Too many arguments provided".to_owned()),
     };

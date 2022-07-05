@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
                     TokenKind::Code(def) => {
                         if self.deflist.contains_key(def) {
                             println!(
-                                "\x1b[35mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #DEFINE is called on '{}', but it was previously defined (value was overwritten)", 
+                                "\x1b[95mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #DEFINE is called on '{}', but it was previously defined (value was overwritten)", 
                                 self.line,
                                 self.filename,
                                 def
@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
                 match &self.tokens[param_span.0].kind {
                     TokenKind::Code(def) => match self.deflist.remove(def) {
                         Some(_) => {},
-                        None => println!("\x1b[35mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #UNDEF is called on '{}', but it was not previously defined", self.line, self.filename, def),
+                        None => println!("\x1b[95mBASM-PREPROCESSOR: \x1b[33mWarning on line {} of {}:\x1b[0m\n  #UNDEF is called on '{}', but it was not previously defined", self.line, self.filename, def),
                     }
                     t => return Err(format!(
                         "#UNDEF expects one name parameter\n  Found {:?}",

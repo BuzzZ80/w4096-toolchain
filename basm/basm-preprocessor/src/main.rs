@@ -7,7 +7,7 @@ fn main() {
     let (filename, program) = match fileio::get_input() {
         Ok(s) => s,
         Err(e) => {
-            println!("\x1b[35mBASM-PREPROCESSOR:\x1b[0m {}", e);
+            println!("\x1b[95mBASM-PREPROCESSOR:\x1b[0m {}", e);
             return;
         }
     };
@@ -17,7 +17,7 @@ fn main() {
     match lexer.tokenize() {
         Ok(()) => {}
         Err(e) => {
-            println!("\x1b[35mBASM-PREPROCESSOR:\x1b[0m {}", e);
+            println!("\x1b[95mBASM-PREPROCESSOR:\x1b[0m {}", e);
             return;
         }
     }
@@ -27,12 +27,12 @@ fn main() {
     match parser.parse() {
         Ok(()) => {}
         Err(e) => {
-            println!("\x1b[35mBASM-PREPROCESSOR:\x1b[0m {}", e);
+            println!("\x1b[95mBASM-PREPROCESSOR:\x1b[0m {}", e);
             return;
         }
     }
 
-    //println!("{}", parser.output);
+    println!("{}", parser.output);
     //println!("{:#?}", parser.map);
     for def in parser.deflist {
         print!("Label '{}':", def.0);

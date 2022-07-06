@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "basm/basm-preprocessor"
+    "basm/basm-preprocessor",
+    "basm/basm",
 ]

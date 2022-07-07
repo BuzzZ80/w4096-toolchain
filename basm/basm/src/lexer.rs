@@ -6,22 +6,75 @@ pub enum TokenKind {
     Integer(u16),
 
     // Symbols
+    Comma,
+    OpenParen,
+    CloseParen,
+    Plus,
+    Minus,
+    Times,
+    Div,
 
     // Keywords
     // Registers
+    Ac,
+    Br,
+    Ix,
+    Sp,
+    Imm,
+    Stack,
 
     // Instructions
+    Mov,
+    Add,
+    Adc,
+    Sub,
+    Sbb,
+    Sbw,
+    Swb,
+    Nnd,
+    And,
+    Aib,
+    Anb,
+    Bia,
+    Bna,
+    Ora,
+    Nor,
+    Jmp,
+    Hlt,
+    Jsr,
+    Ret,
+    Dec,
+    Inc,
+    Cmp,
+    Xor,
+    Xnr,
+    Clc,
+    Clz,
+    Sec,
+    Sez,
 
     // Conditionals
+    C,
+    Z,
+    Nc,
+    Nz,
+    Cz,
+    Ncz,
 
     // Assembler directives
+    Org,
+    Db,
 
     //Other
     None,
 }
 
-/// TokenKind, span, line number
-pub struct Token(pub TokenKind, pub usize, pub usize);
+#[derive(Debug)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: usize,
+    pub line: usize,
+}
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -79,6 +132,7 @@ fn tokenize_number(data: &str) -> Result<Token, String> {
     let result_num = if read.len() > 2 {
         match &read[0..2] {
             "0x" => u16::from_str_radix(&read[2..], 16),
+            "0o" => u16::from_str_radix(&read[2..], 8),
             "0b" => u16::from_str_radix(&read[2..], 2),
             _ => read.parse::<u16>(),
         }
@@ -91,44 +145,11 @@ fn tokenize_number(data: &str) -> Result<Token, String> {
         Err(_) => return Err(format!("Could not parse number: '{}'", read)),
     };
 
-    Ok(Token(TokenKind::Integer(num), bytes_read, 0))
-}
-
-fn tokenize_char(data: &str) -> Result<Token, String> {
-    let mut bytes_read = 0;
-
-    let mut chars = data.chars();
-    chars.next();
-
-    let next = match chars.next() {
-        Some('\'') => return Err("No char found between 's".to_owned()),
-        Some('\\') => {
-            bytes_read += 1;
-            match chars.next() {
-                Some('n') => 0x0A as char,
-                Some('c') => 0x0B as char,
-                Some('z') => 0x0C as char,
-                Some('\\') => '\\',
-                Some('\'') => '\'',
-                Some(c) => return Err(format!("{} is not a valid escape character", c)),
-                None => return Err("Reached EOF before finding a \"".to_owned()),
-            }
-        }
-        Some(c) => c,
-        None => return Err("Unexpected EOF after '".to_owned()),
-    };
-
-    if chars.next() != Some('\'') {
-        return Err("Too many chars in between 's".to_owned());
-    }
-
-    bytes_read += next.len_utf8();
-
-    if bytes_read == 0 {
-        return Err("No matches".to_owned());
-    }
-
-    Ok(Token(TokenKind::Integer(next as u16), bytes_read + 2, 0))
+    Ok(Token{
+        kind: TokenKind::Integer(num), 
+        span: bytes_read,
+        line: 0,
+    })
 }
 
 /// Returns a String from the 2nd char of data to the next ", will break if there's no "
@@ -145,9 +166,8 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
             Some('\\') => {
                 bytes_read += 1;
                 match chars.next() {
-                    Some('n') => 0x0A as char,
-                    Some('c') => 0x0B as char,
-                    Some('z') => 0x0C as char,
+                    Some('n') => '\n',
+                    Some('0') => '\0',
                     Some('\\') => '\\',
                     Some('\"') => '"',
                     Some(c) => return Err(format!("{} is not a valid escape character", c)),
@@ -167,7 +187,11 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
         return Err("No matches".to_owned());
     }
 
-    Ok(Token(TokenKind::String(final_string), bytes_read + 2, 0))
+    Ok(Token {
+        kind: TokenKind::String(final_string),
+        span: bytes_read,
+        line: 0,
+    })
 }
 
 /// Returns a keyword or label from the start of data
@@ -175,11 +199,48 @@ fn tokenize_identifier(data: &str) -> Result<Token, String> {
     let (read, bytes_read) = take_while(data, |c| c == '_' || c.is_alphanumeric())?;
 
     let token_kind = match &read.to_lowercase()[..] {
-
+        "mov" => TokenKind::Mov,
+        "add" => TokenKind::Add,
+        "adc" => TokenKind::Adc,
+        "sub" => TokenKind::Sub,
+        "sbb" => TokenKind::Sbb,
+        "sbw" => TokenKind::Sbw,
+        "swb" => TokenKind::Swb,
+        "nnd" => TokenKind::Nnd,
+        "and" => TokenKind::And,
+        "aib" => TokenKind::Aib,
+        "anb" => TokenKind::Anb,
+        "bia" => TokenKind::Bia,
+        "bna" => TokenKind::Bna,
+        "ora" => TokenKind::Ora,
+        "nor" => TokenKind::Nor,
+        "jmp" => TokenKind::Jmp,
+        "hlt" => TokenKind::Hlt,
+        "jsr" => TokenKind::Jsr,
+        "ret" => TokenKind::Ret,
+        "dec" => TokenKind::Dec,
+        "inc" => TokenKind::Inc,
+        "cmp" => TokenKind::Cmp,
+        "xor" => TokenKind::Xor,
+        "xnr" => TokenKind::Xnr,
+        "clc" => TokenKind::Clc,
+        "clz" => TokenKind::Clz,
+        "sec" => TokenKind::Sec,
+        "sez" => TokenKind::Sez,
+        "c" => TokenKind::C,
+        "z" => TokenKind::Z,
+        "nc" => TokenKind::Nc,
+        "nz" => TokenKind::Nz,
+        "cz" => TokenKind::Cz,
+        "ncz" => TokenKind::Ncz,
         s => TokenKind::Label(s.to_owned()),
     };
 
-    Ok(Token(token_kind, bytes_read, 0))
+    Ok(Token{
+        kind: token_kind, 
+        span: bytes_read, 
+        line: 0,
+    })
 }
 
 /// Tokenizes a single directive
@@ -187,11 +248,16 @@ fn tokenize_directive(data: &str) -> Result<Token, String> {
     let (read, bytes_read) = take_while(data, |c| c == '_' || c == '.' || c.is_alphanumeric())?;
 
     let token_kind = match &read.to_lowercase()[..] {
-
+        ".org" => TokenKind::Org,
+        ".db" => TokenKind::Db,
         s => return Err(format!("Unknown dot directive '{}'.", s)),
     };
 
-    Ok(Token(token_kind, bytes_read, 0))
+    Ok(Token{
+        kind: token_kind, 
+        span: bytes_read, 
+        line: 0,
+    })
 }
 
 /// Tokenizes any character, string, integer, keyword, label, etc. Does not skip comments or whitespace
@@ -204,7 +270,41 @@ pub fn tokenize_one_token(data: &str) -> Result<Token, String> {
     //let peek = chars.next().unwrap_or('\0');
 
     let token = match next {
-        
+        ',' => Token {
+            kind: TokenKind::Comma,
+            span: 1,
+            line: 0,
+        },
+        '(' => Token {
+            kind: TokenKind::OpenParen,
+            span: 1,
+            line: 0,
+        },
+        ')' => Token {
+            kind: TokenKind::CloseParen,
+            span: 1,
+            line: 0,
+        },
+        '+' => Token {
+            kind: TokenKind::Plus,
+            span: 1,
+            line: 0,
+        },
+        '-' => Token {
+            kind: TokenKind::Minus,
+            span: 1,
+            line: 0,
+        },
+        '*' => Token {
+            kind: TokenKind::Times,
+            span: 1,
+            line: 0,
+        },
+        '/' => Token {
+            kind: TokenKind::Div,
+            span: 1,
+            line: 0,
+        },
         '.' => tokenize_directive(data)?,
         '0'..='9' => tokenize_number(data)?,
         '"' => tokenize_string_literal(data)?,
@@ -213,13 +313,6 @@ pub fn tokenize_one_token(data: &str) -> Result<Token, String> {
     };
 
     Ok(token)
-}
-
-impl Token {
-    /// Converts Token to (TokenKind, usize)
-    pub fn as_tuple(&self) -> (TokenKind, usize) {
-        (self.0.to_owned(), self.1)
-    }
 }
 
 impl<'a> Lexer<'a> {
@@ -252,7 +345,7 @@ impl<'a> Lexer<'a> {
                     (TokenKind::None, 1)
                 }
                 _ => match tokenize_one_token(self.get_selected()) {
-                    Ok(tok) => tok.as_tuple(),
+                    Ok(tok) => (tok.kind, tok.span),
                     Err(e) => return Err(format!("Error on line {}:\n  {}", self.line, e)),
                 },
             };
@@ -262,7 +355,11 @@ impl<'a> Lexer<'a> {
             match val {
                 TokenKind::None => {}
                 _ => {
-                    tokens.push(Token(val, consumed, self.line));
+                    tokens.push(Token{
+                        kind: val, 
+                        span: consumed, 
+                        line: self.line,
+                    });
                 }
             }
         }
@@ -284,12 +381,6 @@ impl<'a> Lexer<'a> {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
-    }
-}
-
-impl std::fmt::Debug for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "(len {:0>3}) {:?}", self.1, self.0)
+        write!(f, "{:?}", self.kind)
     }
 }

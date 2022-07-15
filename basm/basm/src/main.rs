@@ -4,7 +4,7 @@ mod lexer;
 
 fn main() {
     // Get input data
-    let (filename, program) = match fileio::get_input() {
+    let (_ , program) = match fileio::get_input() {
         Ok(s) => s,
         Err(e) => {
             println!("\x1b[95mBASM-PREPROCESSOR:\x1b[0m {}", e);
@@ -21,5 +21,7 @@ fn main() {
         }
     };
 
-    println!("{:?}", tokens);
+    for tok in tokens {
+        println!("{}", tok);
+    }
 }

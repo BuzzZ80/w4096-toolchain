@@ -32,7 +32,7 @@ pub fn get_map(filename: &str) -> Result<CodeMap, String> {
     let mut data = Vec::<u8>::new();
 
     // Ensure opened file can be read, and if not, return error
-    if let Err(e) = file.read(&mut data) {
+    if let Err(_) = file.read(&mut data) {
         return Err("Could not be read.".to_owned());
     };
 

@@ -233,6 +233,12 @@ fn tokenize_identifier(data: &str) -> Result<Token, String> {
         "nz" => TokenKind::Nz,
         "cz" => TokenKind::Cz,
         "ncz" => TokenKind::Ncz,
+        "ac" => TokenKind::Ac,
+        "br" => TokenKind::Br,
+        "ix" => TokenKind::Ix,
+        "sp" => TokenKind::Sp,
+        "imm" => TokenKind::Imm,
+        "stack" => TokenKind::Stack,
         s => TokenKind::Label(s.to_owned()),
     };
 

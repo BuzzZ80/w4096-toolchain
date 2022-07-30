@@ -6,13 +6,14 @@ pub struct CodeMap {
     pub line_entries: Vec<LineEntry>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 pub struct LineEntry {
     filename_index: usize,
     line: usize,
 }
 
 impl CodeMap {
+    /*
     pub fn new() -> Self {
         Self {
             filenames: Vec::<String>::new(),
@@ -37,6 +38,14 @@ impl CodeMap {
         }
 
         self.filenames.extend_from_slice(other.filenames.as_slice());
+    }
+    */
+    pub fn get_from(&self, line: usize) -> (String, usize) {
+        let entry = self.line_entries[line - 1];
+        let filename = self.filenames[entry.filename_index].to_owned();
+        let line = entry.line;
+
+        (filename, line)
     }
 }
 

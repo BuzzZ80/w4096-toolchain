@@ -13,6 +13,7 @@ pub enum TokenKind {
     Minus,
     Times,
     Div,
+    Colon, // For denoting labels
 
     // Keywords
     // Registers
@@ -145,8 +146,8 @@ fn tokenize_number(data: &str) -> Result<Token, String> {
         Err(_) => return Err(format!("Could not parse number: '{}'", read)),
     };
 
-    Ok(Token{
-        kind: TokenKind::Integer(num), 
+    Ok(Token {
+        kind: TokenKind::Integer(num),
         span: bytes_read,
         line: 0,
     })
@@ -189,7 +190,7 @@ fn tokenize_string_literal(data: &str) -> Result<Token, String> {
 
     Ok(Token {
         kind: TokenKind::String(final_string),
-        span: bytes_read,
+        span: bytes_read + 2,
         line: 0,
     })
 }
@@ -242,9 +243,9 @@ fn tokenize_identifier(data: &str) -> Result<Token, String> {
         s => TokenKind::Label(s.to_owned()),
     };
 
-    Ok(Token{
-        kind: token_kind, 
-        span: bytes_read, 
+    Ok(Token {
+        kind: token_kind,
+        span: bytes_read,
         line: 0,
     })
 }
@@ -259,9 +260,9 @@ fn tokenize_directive(data: &str) -> Result<Token, String> {
         s => return Err(format!("Unknown dot directive '{}'.", s)),
     };
 
-    Ok(Token{
-        kind: token_kind, 
-        span: bytes_read, 
+    Ok(Token {
+        kind: token_kind,
+        span: bytes_read,
         line: 0,
     })
 }
@@ -281,12 +282,12 @@ pub fn tokenize_one_token(data: &str) -> Result<Token, String> {
             span: 1,
             line: 0,
         },
-        '(' => Token {
+        '(' | '[' => Token {
             kind: TokenKind::OpenParen,
             span: 1,
             line: 0,
         },
-        ')' => Token {
+        ')' | ']' => Token {
             kind: TokenKind::CloseParen,
             span: 1,
             line: 0,
@@ -311,6 +312,11 @@ pub fn tokenize_one_token(data: &str) -> Result<Token, String> {
             span: 1,
             line: 0,
         },
+        ':' => Token {
+            kind: TokenKind::Colon,
+            span: 1,
+            line: 0,
+        },
         '.' => tokenize_directive(data)?,
         '0'..='9' => tokenize_number(data)?,
         '"' => tokenize_string_literal(data)?,
@@ -332,7 +338,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Tokenizes all of self.data, returning a Vec of all the tokens to be passed to a parser
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, (String, usize)> {
         let mut tokens = Vec::new();
 
         while self.span.0 != self.span.1 {
@@ -352,7 +358,7 @@ impl<'a> Lexer<'a> {
                 }
                 _ => match tokenize_one_token(self.get_selected()) {
                     Ok(tok) => (tok.kind, tok.span),
-                    Err(e) => return Err(format!("Error on line {}:\n  {}", self.line, e)),
+                    Err(e) => return Err((e, self.line)),
                 },
             };
 
@@ -361,9 +367,9 @@ impl<'a> Lexer<'a> {
             match val {
                 TokenKind::None => {}
                 _ => {
-                    tokens.push(Token{
-                        kind: val, 
-                        span: consumed, 
+                    tokens.push(Token {
+                        kind: val,
+                        span: consumed,
                         line: self.line,
                     });
                 }

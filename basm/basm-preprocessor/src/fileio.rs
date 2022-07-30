@@ -5,7 +5,7 @@ use std::io::prelude::{Read, Write};
 use crate::codemap::CodeMap;
 
 const ASM_FILENAME: &str = "out.basm";
-const MAP_FILENAME: &str = "out.map";
+const MAP_FILENAME: &str = "out.basm.map";
 
 pub fn get_input() -> Result<(String, String), String> {
     // Get command line arguments
@@ -94,7 +94,7 @@ pub fn write_map_file(data: &CodeMap) -> Result<(), String> {
         )),
     };
 
-    if let Err(e) = file.write_all(&bincode::serialize(data).unwrap()) {
+    if let Err(e) = file.write_all(&serde_json::to_string(data).unwrap().as_bytes()) {
         return Err(format!(
             "{} couldn't be written to. file.write_all(...) returned the following error:\n  {}",
             MAP_FILENAME,
